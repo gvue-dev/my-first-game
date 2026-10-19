@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alien Tic-Tac-Toe</title>
+<style>
+  :root{--bg:#0f2a14;--panel:#16401f;--line:#2f7a3c;--lime:#b6e04a;--yellow:#ffd93b;--ink:#f4ffe0;--deep:#0a1d0e;--mute:#bcd9a8}
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -10%,#1d5a2a 0,#07160a 65%);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;display:flex;justify-content:center;padding:16px}
+  main{width:100%;max-width:460px;display:flex;flex-direction:column;gap:12px}
+  h1{margin:0;text-align:center;font-size:1.6rem;color:var(--yellow);letter-spacing:.01em}
+  .tag{margin:0;text-align:center;color:var(--mute);font-size:.85rem}
+  [hidden]{display:none!important}
+  .card{background:var(--bg);border:3px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px}
+  .stage{background:radial-gradient(ellipse at 50% 110%,#2f7a3c 0,#0a1d0e 70%);border:2px solid var(--line);border-radius:14px;text-align:center;padding:6px}
+  .alien{width:170px;height:170px;filter:drop-shadow(0 6px 6px rgba(0,0,0,.45));animation:bob 2.4s ease-in-out infinite}
+  .alien.hit{animation:shake .35s}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+  @media (prefers-reduced-motion:reduce){.alien,.alien.hit{animation:none}}
+  .hp{display:flex;justify-content:space-between;gap:8px;font-weight:700;font-size:.95rem}
+  .hp span{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:6px 10px}
+  .status{margin:0;font-weight:700;font-size:1.02rem;line-height:1.35;min-height:2.7em;outline:none}
+  .status b{color:var(--yellow)}
+  .btn{display:block;width:100%;min-height:48px;padding:11px;border-radius:12px;border:2px solid var(--yellow);background:var(--yellow);color:#1b2a05;font:800 1rem system-ui,sans-serif;cursor:pointer}
+  .btn.alt{background:transparent;color:var(--yellow)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn:focus-visible,.cell:focus-visible{outline:4px solid #fff;outline-offset:2px}
+  .row{display:flex;gap:8px}.row .btn{flex:1}
+  .banner{border-radius:12px;padding:12px;text-align:center;font-weight:900;font-size:1.15rem}
+  .banner.good{background:var(--lime);color:#13310a}
+  .banner.bad{background:#3b3a10;color:var(--yellow);border:2px solid var(--yellow)}
+  .banner.draw{background:var(--panel);color:var(--ink);border:2px solid var(--line)}
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:320px;margin:0 auto}
+  .board.small{max-width:190px;gap:5px}
+  .cell{aspect-ratio:1;min-height:48px;border:3px solid var(--line);background:var(--panel);border-radius:12px;color:var(--lime);font:900 clamp(1.8rem,9vw,2.6rem) system-ui,sans-serif;cursor:pointer;display:grid;place-items:center;padding:0}
+  .cell.o{color:var(--yellow)}
+  .cell:not(:disabled):hover{border-color:var(--yellow)}
+  .cell:disabled{cursor:default}
+  .cell.locked{opacity:.5}
+  .cell.pend{opacity:1;border-color:var(--yellow);box-shadow:0 0 0 4px rgba(255,217,59,.35);color:var(--yellow);font-size:.75rem}
+  .cell.win{background:#2d6a1c;border-color:var(--lime);opacity:1}
+  .table{width:100%;border-collapse:collapse;font-size:.95rem}
+  .table td,.table th{border:1px solid var(--line);padding:6px 8px;text-align:left}
+  .table th{color:var(--lime)}
+  .hint{margin:0;font-size:.85rem;color:var(--mute)}
+  .foot{margin:0;text-align:center;font-size:.75rem;color:var(--mute)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<defs>
+    <radialGradient id="gShadow"><stop offset="0" stop-color="#000" stop-opacity=".6"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gPip" cx="35%" cy="25%" r="85%"><stop offset="0" stop-color="#fff7b0"/><stop offset=".4" stop-color="#ffd93b"/><stop offset="1" stop-color="#e09a0c"/></radialGradient>
+    <radialGradient id="gPipDark" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#ffd93b"/><stop offset="1" stop-color="#c98408"/></radialGradient>
+    <radialGradient id="gMoss" cx="32%" cy="22%" r="90%"><stop offset="0" stop-color="#dcfb96"/><stop offset=".4" stop-color="#85c93a"/><stop offset="1" stop-color="#3a7a1d"/></radialGradient>
+    <radialGradient id="gMossDark" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#6fb52f"/><stop offset="1" stop-color="#2e6317"/></radialGradient>
+    <radialGradient id="gNibs" cx="35%" cy="25%" r="85%"><stop offset="0" stop-color="#f7ffc4"/><stop offset=".45" stop-color="#c6e85e"/><stop offset="1" stop-color="#7ba52a"/></radialGradient>
+    <radialGradient id="gNibsDark" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#b3d84c"/><stop offset="1" stop-color="#6a9422"/></radialGradient>
+    <radialGradient id="gBelly" cx="45%" cy="30%" r="80%"><stop offset="0" stop-color="#fffbd2"/><stop offset="1" stop-color="#f3e78e"/></radialGradient>
+    <radialGradient id="gEye" cx="40%" cy="32%" r="80%"><stop offset="0" stop-color="#fff"/><stop offset=".75" stop-color="#f4f8ec"/><stop offset="1" stop-color="#cdd9bd"/></radialGradient>
+    <radialGradient id="gGlow"><stop offset="0" stop-color="#f6ffa8" stop-opacity=".95"/><stop offset="1" stop-color="#f6ffa8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gBulb" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#d9f56a"/><stop offset="1" stop-color="#8fcf2e"/></radialGradient>
+    <radialGradient id="gShield" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#9be04f"/><stop offset="1" stop-color="#2f6b18"/></radialGradient>
+    <linearGradient id="gGun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8ff8a"/><stop offset="1" stop-color="#7fb82a"/></linearGradient>
+    <linearGradient id="gClaw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffef0"/><stop offset="1" stop-color="#e8dfa8"/></linearGradient>
+
+    <!-- ===== PIP: full-body yellow blob with ray blaster. Shows LASER ===== -->
+    <symbol id="pip" viewBox="-20 0 240 240">
+      <ellipse cx="100" cy="225" rx="68" ry="9" fill="url(#gShadow)"/>
+      <g stroke="#14340f" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+        <!-- tail with star tip -->
+        <path d="M150 196 Q182 196 178 168" fill="none" stroke-width="7"/>
+        <path d="M150 196 Q182 196 178 168" fill="none" stroke="#ffd93b" stroke-width="3"/>
+        <path d="M178 150 l4 11 12 1 -9 8 3 12 -10 -7 -10 7 3 -12 -9 -8 12 -1z" fill="#d9f56a"/>
+        <!-- antennae -->
+        <path d="M80 84 Q62 62 66 38" fill="none" stroke-width="6"/><path d="M80 84 Q62 62 66 38" fill="none" stroke="#e8a812" stroke-width="2.6"/>
+        <path d="M120 84 Q138 62 134 38" fill="none" stroke-width="6"/><path d="M120 84 Q138 62 134 38" fill="none" stroke="#e8a812" stroke-width="2.6"/>
+        <circle cx="66" cy="38" r="20" fill="url(#gGlow)" stroke="none"/><circle cx="134" cy="38" r="20" fill="url(#gGlow)" stroke="none"/>
+        <circle cx="66" cy="38" r="9" fill="url(#gBulb)"/><circle cx="134" cy="38" r="9" fill="url(#gBulb)"/>
+        <!-- feet -->
+        <ellipse cx="72" cy="208" rx="24" ry="13" fill="url(#gPipDark)"/><ellipse cx="128" cy="208" rx="24" ry="13" fill="url(#gPipDark)"/>
+        <path d="M58 212 v-4 M72 214 v-5 M86 212 v-4" stroke="#14340f" stroke-width="2.4" fill="none"/>
+        <path d="M114 212 v-4 M128 214 v-5 M142 212 v-4" stroke="#14340f" stroke-width="2.4" fill="none"/>
+        <!-- far arm -->
+        <ellipse cx="40" cy="162" rx="13" ry="22" fill="url(#gPipDark)" transform="rotate(28 40 162)"/>
+        <!-- body -->
+        <path d="M100 76 C150 76 166 120 160 158 C156 190 132 208 100 208 C68 208 44 190 40 158 C34 120 50 76 100 76Z" fill="url(#gPip)"/>
+        <!-- belly -->
+        <ellipse cx="100" cy="178" rx="31" ry="25" fill="url(#gBelly)" stroke="none"/>
+        <!-- head spots -->
+        <g fill="#e8a812" stroke="none"><circle cx="100" cy="92" r="4"/><circle cx="86" cy="98" r="3"/><circle cx="114" cy="98" r="3"/></g>
+        <!-- eyes -->
+        <ellipse cx="78" cy="128" rx="18" ry="22" fill="url(#gEye)"/><ellipse cx="122" cy="128" rx="18" ry="22" fill="url(#gEye)"/>
+        <ellipse cx="81" cy="132" rx="12" ry="15" fill="#1d2f10" stroke="none"/><ellipse cx="119" cy="132" rx="12" ry="15" fill="#1d2f10" stroke="none"/>
+        <circle cx="85" cy="125" r="5" fill="#fff" stroke="none"/><circle cx="123" cy="125" r="5" fill="#fff" stroke="none"/>
+        <circle cx="78" cy="138" r="2.4" fill="#fff" stroke="none"/><circle cx="116" cy="138" r="2.4" fill="#fff" stroke="none"/>
+        <!-- brows + cheeks + mouth -->
+        <path d="M64 102 Q78 94 92 102" fill="none" stroke-width="3"/><path d="M108 102 Q122 94 136 102" fill="none" stroke-width="3"/>
+        <circle cx="58" cy="150" r="8" fill="#ff8e3c" opacity=".55" stroke="none"/><circle cx="142" cy="150" r="8" fill="#ff8e3c" opacity=".55" stroke="none"/>
+        <path d="M86 150 Q100 172 114 150 Q100 156 86 150Z" fill="#7a2a14"/><path d="M93 160 Q100 166 107 160 Q100 158 93 160Z" fill="#ff8a8a" stroke="none"/>
+        <!-- gloss -->
+        <ellipse cx="70" cy="96" rx="22" ry="9" fill="#fff" opacity=".5" stroke="none" transform="rotate(-28 70 96)"/>
+        <path d="M46 172 Q52 198 84 204" fill="none" stroke="#a96a06" stroke-width="5" opacity=".35"/>
+        <!-- blaster arm (near) -->
+        <ellipse cx="158" cy="150" rx="13" ry="22" fill="url(#gPipDark)" transform="rotate(-48 158 150)"/>
+        <rect x="160" y="112" width="34" height="18" rx="8" fill="url(#gGun)" transform="rotate(-18 177 121)"/>
+        <rect x="186" y="106" width="12" height="12" rx="4" fill="#ffd93b" transform="rotate(-18 192 112)"/>
+        <circle cx="154" cy="140" r="11" fill="url(#gPipDark)"/>
+        <path d="M200 98 l8 -8 M204 108 l10 -2 M198 88 l4 -9" stroke="#ffd93b" stroke-width="3" fill="none"/>
+      </g>
+    </symbol>
+
+    <!-- ===== MOSS: full-body green bean with leaf sprout and round shield. Shows SHIELD ===== -->
+    <symbol id="moss" viewBox="-20 0 240 240">
+      <ellipse cx="100" cy="226" rx="62" ry="9" fill="url(#gShadow)"/>
+      <g stroke="#14340f" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+        <!-- sprout -->
+        <path d="M100 66 Q100 50 98 38" fill="none" stroke-width="6"/><path d="M100 66 Q100 50 98 38" fill="none" stroke="#6fb52f" stroke-width="2.6"/>
+        <path d="M98 40 Q70 12 46 28 Q64 52 98 40Z" fill="url(#gMoss)"/><path d="M98 40 Q72 28 56 32" fill="none" stroke="#3a7a1d" stroke-width="2"/>
+        <path d="M98 40 Q126 4 154 20 Q136 50 98 40Z" fill="url(#gBulb)"/><path d="M98 40 Q128 24 144 24" fill="none" stroke="#5aa52a" stroke-width="2"/>
+        <!-- legs -->
+        <path d="M74 198 L74 214 Q74 222 86 222 Q98 222 98 214 L98 198Z" fill="url(#gMossDark)"/>
+        <path d="M102 198 L102 214 Q102 222 114 222 Q126 222 126 214 L126 198Z" fill="url(#gMossDark)"/>
+        <ellipse cx="82" cy="220" rx="18" ry="8" fill="#ffd93b"/><ellipse cx="118" cy="220" rx="18" ry="8" fill="#ffd93b"/>
+        <!-- far (right) arm waving -->
+        <ellipse cx="150" cy="140" rx="11" ry="22" fill="url(#gMossDark)" transform="rotate(-32 150 140)"/>
+        <circle cx="160" cy="116" r="10" fill="url(#gMossDark)"/>
+        <!-- body -->
+        <path d="M100 62 C140 62 150 96 150 130 C150 172 140 204 100 204 C60 204 50 172 50 130 C50 96 60 62 100 62Z" fill="url(#gMoss)"/>
+        <ellipse cx="100" cy="170" rx="30" ry="28" fill="#d9f79a" opacity=".75" stroke="none"/>
+        <g fill="#5aa52a" stroke="none"><circle cx="88" cy="166" r="3.5"/><circle cx="108" cy="176" r="3"/><circle cx="100" cy="158" r="2.6"/></g>
+        <!-- eyes -->
+        <circle cx="80" cy="112" r="19" fill="url(#gEye)"/><circle cx="120" cy="112" r="19" fill="url(#gEye)"/>
+        <circle cx="83" cy="115" r="12" fill="#1d2f10" stroke="none"/><circle cx="117" cy="115" r="12" fill="#1d2f10" stroke="none"/>
+        <circle cx="88" cy="109" r="5" fill="#fff" stroke="none"/><circle cx="122" cy="109" r="5" fill="#fff" stroke="none"/>
+        <circle cx="80" cy="121" r="2.4" fill="#fff" stroke="none"/><circle cx="114" cy="121" r="2.4" fill="#fff" stroke="none"/>
+        <!-- little third eye -->
+        <circle cx="100" cy="84" r="8" fill="url(#gEye)"/><circle cx="100" cy="86" r="4.6" fill="#1d2f10" stroke="none"/><circle cx="102" cy="84" r="1.8" fill="#fff" stroke="none"/>
+        <!-- face -->
+        <circle cx="64" cy="138" r="8" fill="#ffd93b" opacity=".6" stroke="none"/><circle cx="136" cy="138" r="8" fill="#ffd93b" opacity=".6" stroke="none"/>
+        <path d="M88 138 Q94 150 100 140 Q106 150 112 138" fill="none" stroke-width="3.4"/>
+        <ellipse cx="68" cy="84" rx="12" ry="22" fill="#fff" opacity=".4" stroke="none" transform="rotate(18 68 84)"/>
+        <!-- shield (near, left) -->
+        <ellipse cx="62" cy="168" rx="12" ry="18" fill="url(#gMossDark)" transform="rotate(-20 62 168)"/>
+        <circle cx="54" cy="150" r="42" fill="#ffd93b"/>
+        <circle cx="54" cy="150" r="33" fill="url(#gShield)"/>
+        <circle cx="54" cy="150" r="33" fill="none" stroke="#ffe97a" stroke-width="2" stroke-dasharray="3 5"/>
+        <path d="M54 130 l6 13 14 1 -11 9 4 14 -13 -8 -13 8 4 -14 -11 -9 14 -1z" fill="#ffd93b"/>
+        <ellipse cx="40" cy="132" rx="14" ry="6" fill="#fff" opacity=".45" stroke="none" transform="rotate(-35 40 132)"/>
+        <circle cx="70" cy="178" r="11" fill="url(#gMossDark)"/>
+      </g>
+    </symbol>
+
+    <!-- ===== NIBS: full-body chubby critter, floppy ears, big claws up. Shows CLAW ===== -->
+    <symbol id="nibs" viewBox="-20 0 240 240">
+      <ellipse cx="100" cy="226" rx="70" ry="9" fill="url(#gShadow)"/>
+      <g stroke="#14340f" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+        <!-- tail with spike -->
+        <path d="M156 198 Q190 196 186 170" fill="none" stroke-width="12"/><path d="M156 198 Q190 196 186 170" fill="none" stroke="#a8cf40" stroke-width="6"/>
+        <path d="M178 172 l8 -22 8 22z" fill="#ffd93b"/>
+        <!-- ears -->
+        <path d="M60 96 C26 70 14 110 22 140 C30 150 52 136 66 112Z" fill="url(#gNibsDark)"/>
+        <path d="M54 102 C36 90 30 114 34 130 C42 134 52 124 58 112Z" fill="#ffa7b8" stroke="none"/>
+        <path d="M140 96 C174 70 186 110 178 140 C170 150 148 136 134 112Z" fill="url(#gNibsDark)"/>
+        <path d="M146 102 C164 90 170 114 166 130 C158 134 148 124 142 112Z" fill="#ffa7b8" stroke="none"/>
+        <!-- feet -->
+        <ellipse cx="70" cy="208" rx="26" ry="13" fill="url(#gNibsDark)"/><ellipse cx="130" cy="208" rx="26" ry="13" fill="url(#gNibsDark)"/>
+        <path d="M54 214 l4 -6 M68 216 l3 -7 M82 214 l3 -6 M116 214 l4 -6 M130 216 l3 -7 M144 214 l3 -6" stroke="#fff6c8" stroke-width="3.4" fill="none"/>
+        <!-- body -->
+        <ellipse cx="100" cy="144" rx="64" ry="62" fill="url(#gNibs)"/>
+        <ellipse cx="100" cy="176" rx="34" ry="28" fill="url(#gBelly)" stroke="none"/>
+        <!-- horn nubs -->
+        <path d="M80 88 l-5 -16 14 8z" fill="#ffd93b"/><path d="M120 88 l5 -16 -14 8z" fill="#ffd93b"/>
+        <!-- eyes -->
+        <ellipse cx="76" cy="132" rx="19" ry="21" fill="url(#gEye)"/><ellipse cx="124" cy="132" rx="19" ry="21" fill="url(#gEye)"/>
+        <circle cx="78" cy="136" r="13" fill="#1d2f10" stroke="none"/><circle cx="122" cy="136" r="13" fill="#1d2f10" stroke="none"/>
+        <circle cx="83" cy="129" r="5.4" fill="#fff" stroke="none"/><circle cx="127" cy="129" r="5.4" fill="#fff" stroke="none"/>
+        <circle cx="75" cy="142" r="2.4" fill="#fff" stroke="none"/><circle cx="119" cy="142" r="2.4" fill="#fff" stroke="none"/>
+        <path d="M60 104 Q74 98 90 108" fill="none" stroke-width="3"/><path d="M110 108 Q126 98 140 104" fill="none" stroke-width="3"/>
+        <circle cx="54" cy="156" r="9" fill="#ff8aa0" opacity=".55" stroke="none"/><circle cx="146" cy="156" r="9" fill="#ff8aa0" opacity=".55" stroke="none"/>
+        <ellipse cx="100" cy="148" rx="6" ry="4.4" fill="#14340f"/>
+        <path d="M80 158 Q100 184 120 158 Q100 166 80 158Z" fill="#7a2a14"/>
+        <path d="M88 162 l4 8 4 -6z M112 162 l-4 8 -4 -6z" fill="#fff" stroke-width="2"/>
+        <ellipse cx="72" cy="98" rx="22" ry="9" fill="#fff" opacity=".5" stroke="none" transform="rotate(-24 72 98)"/>
+        <!-- left claw arm raised -->
+        <path d="M46 168 Q22 160 24 126" fill="none" stroke-width="22"/><path d="M46 168 Q22 160 24 126" fill="none" stroke="#a8cf40" stroke-width="16"/>
+        <circle cx="24" cy="116" r="19" fill="url(#gNibsDark)"/>
+        <path d="M10 104 l-4 -16 14 10z M24 98 l0 -18 10 14z M38 104 l8 -14 0 16z" fill="url(#gClaw)"/>
+        <!-- right claw arm raised -->
+        <path d="M154 168 Q178 160 176 126" fill="none" stroke-width="22"/><path d="M154 168 Q178 160 176 126" fill="none" stroke="#a8cf40" stroke-width="16"/>
+        <circle cx="176" cy="116" r="19" fill="url(#gNibsDark)"/>
+        <path d="M190 104 l4 -16 -14 10z M176 98 l0 -18 -10 14z M162 104 l-8 -14 0 16z" fill="url(#gClaw)"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+<main>
+  <h1>Alien Tic-Tac-Toe</h1>
+  <p class="tag">A solo board game with alien battles. Practice classroom project.</p>
+
+  <!-- Instructions / help -->
+  <section class="card" id="helpPanel" aria-label="Instructions">
+    <p class="status" style="min-height:0">Goal: get <b>three X in a row</b>. Pick a square, then win a short alien battle to turn it into X. Lose the battle and the square becomes O. Three O in a row means the aliens win.</p>
+    <table class="table">
+      <tr><th scope="col">Alien shows</th><th scope="col">You press</th></tr>
+      <tr><td>Laser</td><td>Shield</td></tr>
+      <tr><td>Shield</td><td>Blast</td></tr>
+      <tr><td>Claw</td><td>Dodge</td></tr>
+    </table>
+    <p class="hint">Each side starts with 2 health. A right answer costs the alien 1 health; any other answer costs you 1. The battle ends when someone reaches 0. The alien never takes a separate turn on the board. If the board fills with no line, it is a draw.</p>
+    <button class="btn" id="startBtn" type="button">Start</button>
+    <button class="btn" id="closeHelpBtn" type="button" hidden>Close help</button>
+  </section>
+
+  <!-- Battle panel -->
+  <section class="card" id="battlePanel" aria-label="Alien battle" hidden>
+    <div class="hp" aria-label="Health"><span id="pHp">You: 2 of 2</span><span id="aHp">Alien: 2 of 2</span></div>
+    <div class="stage"><svg class="alien" id="alien" role="img" aria-label="Alien"><use id="alienUse" href="#pip"/></svg></div>
+    <div class="row" id="responses">
+      <button class="btn" type="button" data-resp="Shield">Shield</button>
+      <button class="btn" type="button" data-resp="Blast">Blast</button>
+      <button class="btn" type="button" data-resp="Dodge">Dodge</button>
+    </div>
+    <button class="btn" id="nextBtn" type="button" hidden>Next exchange</button>
+  </section>
+
+  <section class="card" id="playCard" aria-label="Board" hidden>
+    <p class="status" id="status" tabindex="-1" aria-live="polite"></p>
+    <div class="banner" id="banner" hidden></div>
+    <button class="btn" id="backBtn" type="button" hidden>Return to board</button>
+    <div class="board" id="board" role="group" aria-label="Game board"></div>
+    <button class="btn" id="againBtn" type="button" hidden>Play again</button>
+    <div class="row">
+      <button class="btn alt" id="helpBtn" type="button">Help</button>
+      <button class="btn alt" id="restartBtn" type="button">Restart game</button>
+    </div>
+    <p class="hint">Restart game clears the whole board and any battle in progress.</p>
+  </section>
+
+  <p class="foot">Classroom practice project. The aliens and the game are fictional.</p>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  var MOVES = [
+    { name: 'Laser',  counter: 'Shield', alien: 'pip',  label: 'Pip' },
+    { name: 'Shield', counter: 'Blast',  alien: 'moss', label: 'Moss' },
+    { name: 'Claw',   counter: 'Dodge',  alien: 'nibs', label: 'Nibs' }
+  ];
+  var S;
+
+  function fresh(started) {
+    return {
+      started: !!started,   // false until Start is used
+      cells: [null,null,null,null,null,null,null,null,null],
+      phase: started ? 'board' : 'instructions',
+      pending: -1, lastCell: -1, ex: 0, pHP: 2, aHP: 2,
+      msg: '', hasBattle: false, battleWon: null,
+      result: null, line: null, helpOpen: false
+    };
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var el = {
+    helpPanel: $('helpPanel'), startBtn: $('startBtn'), closeHelpBtn: $('closeHelpBtn'),
+    battlePanel: $('battlePanel'), pHp: $('pHp'), aHp: $('aHp'), alien: $('alien'), alienUse: $('alienUse'),
+    responses: $('responses'), nextBtn: $('nextBtn'),
+    playCard: $('playCard'), status: $('status'), banner: $('banner'), backBtn: $('backBtn'),
+    board: $('board'), againBtn: $('againBtn'), helpBtn: $('helpBtn'), restartBtn: $('restartBtn')
+  };
+  var respBtns = Array.prototype.slice.call(el.responses.querySelectorAll('button'));
+
+  // Build board once
+  var cellBtns = [];
+  for (var i = 0; i < 9; i++) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'cell'; b.dataset.i = i;
+    el.board.appendChild(b); cellBtns.push(b);
+  }
+
+  function evaluate(cells) {
+    for (var k = 0; k < LINES.length; k++) {
+      var l = LINES[k], a = cells[l[0]];
+      if (a && a === cells[l[1]] && a === cells[l[2]]) return { result: a === 'X' ? 'win' : 'lose', line: l };
+    }
+    if (cells.every(function (c) { return c; })) return { result: 'draw', line: null };
+    return null;
+  }
+
+  /* ---------- actions (each guards on phase, so repeats are ignored) ---------- */
+  function start() {
+    if (S.phase !== 'instructions') return;
+    S = fresh(true);
+    S.msg = 'Choose an empty square to start a battle.';
+    render('status');
+  }
+  function pick(i) {
+    if (S.phase !== 'board' || S.helpOpen || S.cells[i]) return;
+    S.pending = i; S.ex = 0; S.pHP = 2; S.aHP = 2; S.hasBattle = true; S.battleWon = null;
+    S.phase = 'battle';
+    S.msg = battleLine();
+    render('resp');
+  }
+  function battleLine() {
+    var m = MOVES[S.ex];
+    return 'Battling for cell ' + (S.pending + 1) + '. Exchange ' + (S.ex + 1) + ': the alien shows <b>' + m.name.toUpperCase() + '</b>! Choose your response.';
+  }
+  function respond(r) {
+    if (S.phase !== 'battle' || S.helpOpen) return;
+    var m = MOVES[S.ex], correct = (r === m.counter), text;
+    if (correct) { S.aHP--; text = 'Correct! <b>' + r + ' counters ' + m.name + '.</b> Alien loses 1 health.'; }
+    else { S.pHP--; text = 'Not quite. ' + r + ' does not counter ' + m.name + ' (' + m.counter + ' does). You lose 1 health.'; }
+    hit(correct ? 'alien' : 'you');
+    if (S.aHP === 0 || S.pHP === 0) { resolve(text); }
+    else { S.phase = 'feedback'; S.msg = text; render('next'); }
+  }
+  function resolve(text) {
+    var won = S.aHP === 0, mark = won ? 'X' : 'O', cell = S.pending;
+    S.cells[cell] = mark;          // the one and only placement for this battle
+    S.lastCell = cell; S.pending = -1; S.battleWon = won;
+    var end = evaluate(S.cells);
+    var summary = (won ? 'Battle won! The alien is out of health.' : 'Battle lost. You are out of health.');
+    S.msg = text + ' ' + summary + ' Cell ' + (cell + 1) + ' is now ' + mark + '.';
+    if (end) { S.result = end.result; S.line = end.line; S.phase = 'over'; render('again'); }
+    else { S.phase = 'summary'; render('back'); }
+  }
+  function next() {
+    if (S.phase !== 'feedback' || S.helpOpen) return;
+    S.ex++; S.phase = 'battle'; S.msg = battleLine(); render('resp');
+  }
+  function back() {
+    if (S.phase !== 'summary' || S.helpOpen) return;
+    S.phase = 'board'; S.msg = 'Choose an empty square to start a battle.'; render('status');
+  }
+  function restart() {                 // Restart game and Play again: full reset
+    if (S.phase === 'instructions') return;
+    S = fresh(true);
+    S.msg = 'New game. Choose an empty square to start a battle.';
+    render('status');
+  }
+  function toggleHelp() {
+    if (S.phase === 'instructions') return;
+    S.helpOpen = !S.helpOpen;          // never changes game state
+    render(S.helpOpen ? 'closeHelp' : 'helpBtn');
+  }
+  function hit(who) {
+    el.alien.classList.remove('hit');
+    if (who === 'alien') { void el.alien.getBoundingClientRect(); el.alien.classList.add('hit'); }
+  }
+
+  /* ---------- render ---------- */
+  function render(focusTarget) {
+    var p = S.phase, help = S.helpOpen;
+    var instr = (p === 'instructions') || help;
+    el.helpPanel.hidden = !instr;
+    el.startBtn.hidden = p !== 'instructions';
+    el.closeHelpBtn.hidden = p === 'instructions';
+    el.playCard.hidden = p === 'instructions';
+    el.battlePanel.hidden = p === 'instructions' || !S.hasBattle || p === 'board';
+    if (p === 'instructions') return;
+
+    // battle panel
+    var mv = MOVES[Math.min(S.ex, 2)];
+    el.alienUse.setAttribute('href', '#' + mv.alien);
+    el.alien.setAttribute('aria-label', mv.label + ', the alien, shows ' + mv.name);
+    el.pHp.textContent = 'You: ' + S.pHP + ' of 2';
+    el.aHp.textContent = 'Alien: ' + S.aHP + ' of 2';
+    var inFight = (p === 'battle' || p === 'feedback');
+    el.responses.hidden = !inFight;
+    respBtns.forEach(function (b) { b.disabled = !(p === 'battle') || help; });
+    el.nextBtn.hidden = p !== 'feedback';
+    el.nextBtn.disabled = help;
+
+    // status + banner
+    el.status.innerHTML = S.msg;
+    var banner = '', cls = '';
+    if (p === 'summary') { banner = S.battleWon ? 'Battle won! Cell ' + (S.lastCell + 1) + ' is X' : 'Battle lost. Cell ' + (S.lastCell + 1) + ' is O'; cls = S.battleWon ? 'good' : 'bad'; }
+    if (p === 'over') {
+      if (S.result === 'win') { banner = 'You won the board! Three X in a row.'; cls = 'good'; }
+      else if (S.result === 'lose') { banner = 'The aliens won the board. Three O in a row.'; cls = 'bad'; }
+      else { banner = 'Draw. The board is full with no line.'; cls = 'draw'; }
+    }
+    el.banner.hidden = !banner; el.banner.textContent = banner; el.banner.className = 'banner ' + cls;
+    el.backBtn.hidden = p !== 'summary'; el.backBtn.disabled = help;
+    el.againBtn.hidden = p !== 'over'; el.againBtn.disabled = help;
+
+    // board
+    el.board.classList.toggle('small', inFight);
+    cellBtns.forEach(function (b, i) {
+      var v = S.cells[i], r = Math.floor(i / 3) + 1, c = (i % 3) + 1, pend = (i === S.pending);
+      b.textContent = v ? v : (pend ? 'VS' : '');
+      b.className = 'cell' + (v === 'O' ? ' o' : '') + (pend ? ' pend' : '') +
+        ((p !== 'board' && !pend && !v) ? ' locked' : '') + (S.line && S.line.indexOf(i) > -1 ? ' win' : '');
+      b.setAttribute('aria-label', 'Row ' + r + ', column ' + c + ', ' + (v ? v : (pend ? 'battle in progress' : 'empty')));
+      b.disabled = !(p === 'board' && !v) || help;
+    });
+    el.helpBtn.textContent = help ? 'Close help' : 'Help';
+    el.helpBtn.hidden = false;
+    el.restartBtn.hidden = false;        // available during all active play, and after the end
+
+    if (focusTarget) {
+      var t = focusTarget === 'resp' ? respBtns[0] : focusTarget === 'next' ? el.nextBtn :
+        focusTarget === 'back' ? el.backBtn : focusTarget === 'again' ? el.againBtn :
+        focusTarget === 'closeHelp' ? el.closeHelpBtn : focusTarget === 'helpBtn' ? el.helpBtn : el.status;
+      if (t && !t.hidden) t.focus();
+    }
+  }
+
+  /* ---------- wiring ---------- */
+  el.startBtn.addEventListener('click', start);
+  el.closeHelpBtn.addEventListener('click', toggleHelp);
+  el.helpBtn.addEventListener('click', toggleHelp);
+  el.restartBtn.addEventListener('click', restart);
+  el.againBtn.addEventListener('click', restart);
+  el.nextBtn.addEventListener('click', next);
+  el.backBtn.addEventListener('click', back);
+  respBtns.forEach(function (b) { b.addEventListener('click', function () { respond(b.dataset.resp); }); });
+  cellBtns.forEach(function (b) { b.addEventListener('click', function () { pick(+b.dataset.i); }); });
+
+  S = fresh(false);
+  render();
+})();
+</script>
+</body>
+</html>
