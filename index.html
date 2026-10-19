@@ -20,6 +20,8 @@
   @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
   @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
   @media (prefers-reduced-motion:reduce){.alien,.alien.hit{animation:none}}
+  .move{display:inline-block;margin:2px 0 6px;padding:6px 14px;border-radius:999px;background:var(--yellow);color:#1b2a05;font-weight:700;font-size:1rem}
+  .move b{font-weight:900;letter-spacing:.04em}
   .hp{display:flex;justify-content:space-between;gap:8px;font-weight:700;font-size:.95rem}
   .hp span{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:6px 10px}
   .status{margin:0;font-weight:700;font-size:1.02rem;line-height:1.35;min-height:2.7em;outline:none}
@@ -210,7 +212,7 @@
       <tr><td>Shield</td><td>Blast</td></tr>
       <tr><td>Claw</td><td>Dodge</td></tr>
     </table>
-    <p class="hint">Each side starts with 2 health. A right answer costs the alien 1 health; any other answer costs you 1. The battle ends when someone reaches 0. The alien never takes a separate turn on the board. If the board fills with no line, it is a draw.</p>
+    <p class="hint">Each side starts with 2 health. A right answer costs the alien 1 health; any other answer costs you 1. The battle ends when someone reaches 0. The alien picks a random move each exchange (it can repeat). It never takes a separate turn on the board. If the board fills with no line, it is a draw.</p>
     <button class="btn" id="startBtn" type="button">Start</button>
     <button class="btn" id="closeHelpBtn" type="button" hidden>Close help</button>
   </section>
@@ -218,7 +220,8 @@
   <!-- Battle panel -->
   <section class="card" id="battlePanel" aria-label="Alien battle" hidden>
     <div class="hp" aria-label="Health"><span id="pHp">You: 2 of 2</span><span id="aHp">Alien: 2 of 2</span></div>
-    <div class="stage"><svg class="alien" id="alien" role="img" aria-label="Alien"><use id="alienUse" href="#pip"/></svg></div>
+    <div class="stage"><svg class="alien" id="alien" role="img" aria-label="Alien"><use id="alienUse" href="#pip"/></svg>
+      <div class="move" id="moveBadge"></div></div>
     <div class="row" id="responses">
       <button class="btn" type="button" data-resp="Shield">Shield</button>
       <button class="btn" type="button" data-resp="Blast">Blast</button>
@@ -252,14 +255,19 @@
     { name: 'Shield', counter: 'Blast',  alien: 'moss', label: 'Moss' },
     { name: 'Claw',   counter: 'Dodge',  alien: 'nibs', label: 'Nibs' }
   ];
+  var ALIENS = [{ id: 'pip', label: 'Pip' }, { id: 'moss', label: 'Moss' }, { id: 'nibs', label: 'Nibs' }];
   var S;
+  // The alien picks a random move every exchange; the same move may repeat.
+  // A new alien appears every exchange (never the same one twice in a row).
+  function randomAlien(prev) { var a; do { a = Math.floor(Math.random() * ALIENS.length); } while (a === prev); return a; }
+  function randomMove() { return Math.floor(Math.random() * MOVES.length); }
 
   function fresh(started) {
     return {
       started: !!started,   // false until Start is used
       cells: [null,null,null,null,null,null,null,null,null],
       phase: started ? 'board' : 'instructions',
-      pending: -1, lastCell: -1, ex: 0, pHP: 2, aHP: 2,
+      pending: -1, lastCell: -1, ex: 0, cur: 0, alien: 0, pHP: 2, aHP: 2,
       msg: '', hasBattle: false, battleWon: null,
       result: null, line: null, helpOpen: false
     };
@@ -268,7 +276,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var el = {
     helpPanel: $('helpPanel'), startBtn: $('startBtn'), closeHelpBtn: $('closeHelpBtn'),
-    battlePanel: $('battlePanel'), pHp: $('pHp'), aHp: $('aHp'), alien: $('alien'), alienUse: $('alienUse'),
+    battlePanel: $('battlePanel'), moveBadge: $('moveBadge'), pHp: $('pHp'), aHp: $('aHp'), alien: $('alien'), alienUse: $('alienUse'),
     responses: $('responses'), nextBtn: $('nextBtn'),
     playCard: $('playCard'), status: $('status'), banner: $('banner'), backBtn: $('backBtn'),
     board: $('board'), againBtn: $('againBtn'), helpBtn: $('helpBtn'), restartBtn: $('restartBtn')
@@ -301,18 +309,18 @@
   }
   function pick(i) {
     if (S.phase !== 'board' || S.helpOpen || S.cells[i]) return;
-    S.pending = i; S.ex = 0; S.pHP = 2; S.aHP = 2; S.hasBattle = true; S.battleWon = null;
+    S.pending = i; S.ex = 0; S.cur = randomMove(); S.alien = randomAlien(-1); S.pHP = 2; S.aHP = 2; S.hasBattle = true; S.battleWon = null;
     S.phase = 'battle';
     S.msg = battleLine();
     render('resp');
   }
   function battleLine() {
-    var m = MOVES[S.ex];
+    var m = MOVES[S.cur];
     return 'Battling for cell ' + (S.pending + 1) + '. Exchange ' + (S.ex + 1) + ': the alien shows <b>' + m.name.toUpperCase() + '</b>! Choose your response.';
   }
   function respond(r) {
     if (S.phase !== 'battle' || S.helpOpen) return;
-    var m = MOVES[S.ex], correct = (r === m.counter), text;
+    var m = MOVES[S.cur], correct = (r === m.counter), text;
     if (correct) { S.aHP--; text = 'Correct! <b>' + r + ' counters ' + m.name + '.</b> Alien loses 1 health.'; }
     else { S.pHP--; text = 'Not quite. ' + r + ' does not counter ' + m.name + ' (' + m.counter + ' does). You lose 1 health.'; }
     hit(correct ? 'alien' : 'you');
@@ -331,7 +339,7 @@
   }
   function next() {
     if (S.phase !== 'feedback' || S.helpOpen) return;
-    S.ex++; S.phase = 'battle'; S.msg = battleLine(); render('resp');
+    S.ex++; S.cur = randomMove(); S.alien = randomAlien(S.alien); S.phase = 'battle'; S.msg = battleLine(); render('resp');
   }
   function back() {
     if (S.phase !== 'summary' || S.helpOpen) return;
@@ -365,9 +373,10 @@
     if (p === 'instructions') return;
 
     // battle panel
-    var mv = MOVES[Math.min(S.ex, 2)];
-    el.alienUse.setAttribute('href', '#' + mv.alien);
-    el.alien.setAttribute('aria-label', mv.label + ', the alien, shows ' + mv.name);
+    var mv = MOVES[S.cur];
+    el.alienUse.setAttribute('href', '#' + ALIENS[S.alien].id);
+    el.moveBadge.innerHTML = 'Alien move: <b>' + mv.name.toUpperCase() + '</b>';
+    el.alien.setAttribute('aria-label', ALIENS[S.alien].label + ', the alien');
     el.pHp.textContent = 'You: ' + S.pHP + ' of 2';
     el.aHp.textContent = 'Alien: ' + S.aHP + ' of 2';
     var inFight = (p === 'battle' || p === 'feedback');
